@@ -1,22 +1,19 @@
 from flask import Flask, render_template, request
 import pickle
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 import re
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
 import nltk
 import logging
 
-# Flask setup
+# Flask app setup
 app = Flask(__name__)
-app.logger.setLevel(logging.ERROR)  # Set logging level to ERROR for production
+app.logger.setLevel(logging.ERROR)
 
 # Download NLTK resources if not already present
 def download_nltk_resources():
-    resources = {
-        'punkt': 'tokenizers/punkt',
-        'stopwords': 'corpora/stopwords'
-    }
+    resources = {'punkt': 'tokenizers/punkt', 'stopwords': 'corpora/stopwords'}
     for name, path in resources.items():
         try:
             nltk.data.find(path)
@@ -27,30 +24,39 @@ download_nltk_resources()
 
 # Slang normalization dictionary
 slang_dict = {
-    "adlh": "adalah",
-    "bgmn": "bagaimana",
-    "nih": "ini",
-    "afaik": "as far as I know",
-    "abis": "habis",
-    "ga": "tidak",
-    "dikerjai": "dikerjakan"
+    "gak": "tidak", "ga": "tidak", "nggak": "tidak", "g": "tidak", "kagak": "tidak", "enggak": "tidak",
+    "bgt": "banget", "pd": "pada", "dr": "dari", "dlm": "dalam", "nya": "nya", "org": "orang", "jd": "jadi",
+    "jg": "juga", "aja": "saja", "tp": "tapi", "sm": "sama", "udh": "sudah", "dl": "dulu", "mksh": "terima kasih",
+    "gx": "tidak", "yg": "yang", "dgn": "dengan", "d": "di", "tdk": "tidak", "brg": "barang"
 }
 
 # Preprocessing function
 def preprocess_text(text, slang_dict, stemmer):
+    # Lowercasing
     text = text.lower()
-    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
-    text = re.sub(r'\s+', ' ', text)  # Remove extra spaces
-    text = ' '.join([slang_dict.get(word, word) for word in word_tokenize(text)])  # Slang normalization
+    # Remove punctuation and special characters
+    text = re.sub(r'[^\w\s]', '', text)
+    # Tokenize and normalize slang words
+    text = ' '.join([slang_dict.get(word, word) for word in word_tokenize(text)])
+    # Remove extra spaces
+    text = re.sub(r'\s+', ' ', text)
+
+    # Tokenization and stopwords removal
+    stop_words = set(stopwords.words('indonesian')).union(set(stopwords.words('english')))
     tokens = word_tokenize(text)
-    stop_words = set(stopwords.words('indonesian'))  # Stopword list in Indonesian
-    tokens = [word for word in tokens if word not in stop_words]  # Remove stopwords
-    tokens = [stemmer.stem(word) for word in tokens]  # Stemming
+    tokens = [word for word in tokens if word not in stop_words]
+
+    # Stemming
+    tokens = [stemmer.stem(word) for word in tokens]
+
     return ' '.join(tokens)
 
-# Load trained model and vectorizer
-clf = pickle.load(open("svm_model.pkl", "rb"))
-tfidf = pickle.load(open("tfidf_vectorizer.pkl", "rb"))
+# Load trained SVM model and TF-IDF vectorizer
+with open("svm_model.pkl", "rb") as model_file:
+    clf = pickle.load(model_file)
+
+with open("tfidf_vectorizer.pkl", "rb") as vectorizer_file:
+    tfidf = pickle.load(vectorizer_file)
 
 # Initialize stemmer
 factory = StemmerFactory()
@@ -67,11 +73,12 @@ def predict():
         preprocessed_message = preprocess_text(message, slang_dict, stemmer)
         vectorized_message = tfidf.transform([preprocessed_message])
         prediction = clf.predict(vectorized_message)
-        
-        # Mapping sentiment labels to the categories
-        label_mapping = {0: "Negatif", 1: "Netral", 2: "Positif"}
-        result = label_mapping[prediction[0]]  # Return the label based on prediction
+
+        # Mapping sentiment labels to categories
+        label_mapping = {2: "Negatif", 0: "Netral", 1: "Positif"}
+        result = label_mapping[prediction[0]]
+
         return render_template('result.html', prediction=result)
 
 if __name__ == '__main__':
-    app.run(debug=False)  # Set debug=False for production
+    app.run(debug=False)
