@@ -58,8 +58,16 @@
     <p style="font-size:30;text-align: center;" class="lead"><b><u>Result</u></b></p>
     <div class="results">
         <h2 align="center" style="color: {% if prediction == 'Negatif' %}red{% elif prediction == 'Positif' %}green{% else %}orange{% endif %};">
-            {{ prediction }} Review
+            {{ prediction }} Ulasan
+            {% if prediction == 'Positif' %}
+                😊
+            {% elif prediction == 'Negatif' %}
+                😞
+            {% else %}
+                😐
+            {% endif %}
         </h2>
+        
     </div>
 
     <div class="form-row text-center">
